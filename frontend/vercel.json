@@ -3,6 +3,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://hms-backend-s2pu.onrender.com/api/:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }
