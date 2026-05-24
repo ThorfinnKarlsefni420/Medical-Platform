@@ -5,9 +5,14 @@ const ALL_ROLES = ['admin', 'doctor', 'nurse', 'pharmacist', 'lab_technician', '
 
 const NAV = [
   { to: '/',                label: 'Dashboard',       icon: '⊞', roles: ALL_ROLES },
-  { to: '/patients',        label: 'Patients',        icon: '👤', roles: ['admin', 'doctor', 'nurse'] },
-  { to: '/appointments',    label: 'Appointments',    icon: '📅', roles: ['admin', 'doctor', 'nurse', 'patient'] },
-  { to: '/medical-records', label: 'Medical Records', icon: '📋', roles: ['admin', 'doctor', 'nurse', 'patient'] },
+  { to: '/patients',        label: 'Patients',        icon: '👤', roles: ['admin', 'receptionist', 'doctor', 'nurse'] },
+  { to: '/appointments',    label: 'Appointments',    icon: '📅', roles: ['admin', 'receptionist', 'doctor', 'nurse', 'patient'] },
+  { to: '/medical-records', label: 'Medical Records', icon: '📋', roles: ['admin', 'receptionist', 'doctor', 'nurse', 'patient'] },
+  { to: '/lab',             label: 'Laboratory',      icon: '🧪', roles: ['admin', 'doctor', 'lab_technician'] },
+  { to: '/inpatient',      label: 'Inpatient',       icon: '🏥', roles: ['admin', 'doctor', 'nurse'] },
+  { to: '/pharmacy',        label: 'Pharmacy',        icon: '💊', roles: ['admin', 'doctor', 'pharmacist'] },
+  { to: '/drug-inventory',  label: 'Drug Inventory',  icon: '🗃️', roles: ['admin', 'pharmacist'] },
+  { to: '/staff',           label: 'Staff',           icon: '👥', roles: ['admin'] },
   { to: '/profile',         label: 'My Profile',      icon: '🪪', roles: ['patient'] },
 ]
 

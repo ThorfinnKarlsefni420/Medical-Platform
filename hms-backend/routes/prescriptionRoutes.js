@@ -5,6 +5,7 @@ const authorize    = require('../middleware/authorize');
 const {
   getAllPrescriptions,
   getPrescriptionById,
+  getAdmissionPrescriptions,
   createPrescription,
   updatePrescription,
   deletePrescription,
@@ -12,8 +13,9 @@ const {
 
 router.use(authenticate);
 
-router.get('/',    authorize('admin', 'doctor', 'pharmacist'),                    getAllPrescriptions);
-router.get('/:id', authorize('admin', 'doctor', 'pharmacist', 'patient'),         getPrescriptionById);
+router.get('/',                        authorize('admin', 'doctor', 'pharmacist'),                getAllPrescriptions);
+router.get('/admission/:admissionId',  authorize('admin', 'doctor', 'nurse', 'pharmacist'),    getAdmissionPrescriptions);
+router.get('/:id',                     authorize('admin', 'doctor', 'pharmacist', 'patient'),  getPrescriptionById);
 router.post('/',   authorize('admin', 'doctor'),                                   createPrescription);
 router.put('/:id', authorize('admin', 'doctor', 'pharmacist'),                    updatePrescription);
 router.delete('/:id', authorize('admin'),                                          deletePrescription);

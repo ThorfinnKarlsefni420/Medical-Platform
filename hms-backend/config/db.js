@@ -1,4 +1,8 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// Return TIMESTAMP columns as plain strings so node-postgres doesn't
+// shift them to UTC (the DB stores local wall-clock time without a timezone).
+types.setTypeParser(1114, (val) => val);
 
 const pool = new Pool({
   host:     process.env.DB_HOST,

@@ -10,6 +10,12 @@ import MedicalRecords from './pages/MedicalRecords'
 import Patients from './pages/Patients'
 import PatientDetail from './pages/PatientDetail'
 import MyProfile from './pages/MyProfile'
+import Pharmacy from './pages/Pharmacy'
+import DrugInventory from './pages/DrugInventory'
+import StaffManagement from './pages/StaffManagement'
+import AcceptInvite from './pages/AcceptInvite'
+import Lab from './pages/Lab'
+import Inpatient from './pages/Inpatient'
 
 function AppRoutes() {
   const { isAuthenticated } = useAuth()
@@ -23,6 +29,7 @@ function AppRoutes() {
         path="/register"
         element={isAuthenticated ? <Navigate to="/" replace /> : <Register />}
       />
+      <Route path="/invite/:token" element={<AcceptInvite />} />
       <Route
         path="/*"
         element={
@@ -31,20 +38,49 @@ function AppRoutes() {
               <Routes>
                 <Route index                  element={<Dashboard />} />
                 <Route path="appointments"    element={<Appointments />} />
-                <Route path="medical-records" element={<MedicalRecords />} />
+                <Route path="medical-records" element={
+                  <ProtectedRoute roles={['admin', 'receptionist', 'doctor', 'nurse', 'patient']}>
+                    <MedicalRecords />
+                  </ProtectedRoute>
+                } />
                 <Route path="patients"        element={
-                  <ProtectedRoute roles={['admin', 'doctor', 'nurse']}>
+                  <ProtectedRoute roles={['admin', 'receptionist', 'doctor', 'nurse']}>
                     <Patients />
                   </ProtectedRoute>
                 } />
                 <Route path="patients/:id"   element={
-                  <ProtectedRoute roles={['admin', 'doctor', 'nurse']}>
+                  <ProtectedRoute roles={['admin', 'receptionist', 'doctor', 'nurse']}>
                     <PatientDetail />
                   </ProtectedRoute>
                 } />
                 <Route path="profile"         element={
                   <ProtectedRoute roles={['patient']}>
                     <MyProfile />
+                  </ProtectedRoute>
+                } />
+                <Route path="pharmacy" element={
+                  <ProtectedRoute roles={['admin', 'doctor', 'pharmacist']}>
+                    <Pharmacy />
+                  </ProtectedRoute>
+                } />
+                <Route path="drug-inventory" element={
+                  <ProtectedRoute roles={['admin', 'pharmacist']}>
+                    <DrugInventory />
+                  </ProtectedRoute>
+                } />
+                <Route path="staff" element={
+                  <ProtectedRoute roles={['admin']}>
+                    <StaffManagement />
+                  </ProtectedRoute>
+                } />
+                <Route path="lab" element={
+                  <ProtectedRoute roles={['admin', 'doctor', 'lab_technician']}>
+                    <Lab />
+                  </ProtectedRoute>
+                } />
+                <Route path="inpatient" element={
+                  <ProtectedRoute roles={['admin', 'doctor', 'nurse']}>
+                    <Inpatient />
                   </ProtectedRoute>
                 } />
                 <Route path="*" element={<Navigate to="/" replace />} />

@@ -2,10 +2,11 @@
 // Each key is a resource; values are allowed actions for that role.
 // Used as documentation and by the hasPermission() helper in authorize.js.
 
-const ROLES = ['admin', 'doctor', 'nurse', 'pharmacist', 'lab_technician', 'patient'];
+const ROLES = ['admin', 'receptionist', 'doctor', 'nurse', 'pharmacist', 'lab_technician', 'patient'];
 
 const PERMISSIONS = {
   admin: {
+    staff_management:    ['create', 'read', 'update', 'delete'],
     patients:            ['create', 'read', 'update', 'delete'],
     doctors:             ['create', 'read', 'update', 'delete'],
     appointments:        ['create', 'read', 'update', 'delete'],
@@ -14,6 +15,7 @@ const PERMISSIONS = {
     lab_results:         ['create', 'read', 'update', 'delete'],
     prescriptions:       ['create', 'read', 'update', 'delete'],
     pharmacy_dispensing: ['create', 'read', 'update', 'delete'],
+    drug_inventory:      ['create', 'read', 'update', 'delete'],
     admissions:          ['create', 'read', 'update', 'delete'],
     discharges:          ['create', 'read', 'update', 'delete'],
     users:               ['create', 'read', 'update', 'delete'],
@@ -35,9 +37,14 @@ const PERMISSIONS = {
     lab_results:     ['read'],
     admissions:      ['read', 'update'],
   },
+  receptionist: {
+    patients:     ['create', 'read', 'update'],
+    appointments: ['create', 'read', 'update'],
+  },
   pharmacist: {
     prescriptions:       ['read', 'update'],
     pharmacy_dispensing: ['create', 'read', 'update'],
+    drug_inventory:      ['create', 'read', 'update'],
   },
   lab_technician: {
     lab_orders:  ['read', 'update'],

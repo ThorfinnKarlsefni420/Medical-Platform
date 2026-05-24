@@ -14,10 +14,10 @@ const {
 router.use(authenticate);
 
 //                                    ┌── who can do it
-router.get('/',    authorize('admin', 'doctor', 'nurse'),             getAllPatients);
-router.get('/:id', authorize('admin', 'doctor', 'nurse', 'patient'),  getPatientById);
-router.post('/',   authorize('admin', 'doctor'),                       createPatient);
-router.put('/:id', authorize('admin', 'doctor'),                       updatePatient);
-router.delete('/:id', authorize('admin'),                              deletePatient);
+router.get('/',    authorize('admin', 'receptionist', 'doctor', 'nurse'),             getAllPatients);
+router.get('/:id', authorize('admin', 'receptionist', 'doctor', 'nurse', 'patient'),  getPatientById);
+router.post('/',   authorize('admin', 'receptionist', 'doctor'),                       createPatient);
+router.put('/:id', authorize('admin', 'receptionist', 'doctor'),                       updatePatient);
+router.delete('/:id', authorize('admin'),                                              deletePatient);
 
 module.exports = router;

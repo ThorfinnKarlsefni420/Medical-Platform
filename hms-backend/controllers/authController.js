@@ -5,7 +5,7 @@ const { ROLES } = require('../config/permissions');
 
 const SALT_ROUNDS = 12;
 
-const STAFF_ROLES = ['admin', 'doctor', 'nurse', 'pharmacist', 'lab_technician'];
+const STAFF_ROLES = ['admin', 'receptionist', 'doctor', 'nurse', 'pharmacist', 'lab_technician'];
 
 const signToken = (payload) =>
   jwt.sign(payload, process.env.JWT_SECRET, {

@@ -30,7 +30,7 @@ const EMPTY_FORM = {
 
 export default function Appointments() {
   const { user } = useAuth()
-  const canBook = ['admin', 'doctor', 'nurse'].includes(user?.role)
+  const canBook = ['admin', 'receptionist', 'doctor', 'nurse'].includes(user?.role)
 
   const [appointments, setAppointments] = useState([])
   const [patients, setPatients] = useState([])
@@ -72,13 +72,13 @@ export default function Appointments() {
   function openEdit(appt) {
     setEditing(appt)
     setForm({
-      patient_id: appt.patient_id,
-      doctor_id: appt.doctor_id,
-      appointment_date: appt.appointment_date?.slice(0, 10) ?? '',
-      appointment_time: appt.appointment_time?.slice(0, 5) ?? '',
-      reason: appt.reason ?? '',
-      notes: appt.notes ?? '',
-      status: appt.status ?? 'Scheduled',
+      patient_id:       appt.patient_id,
+      doctor_id:        appt.doctor_id,
+      appointment_date: appt.appointment_datetime?.slice(0, 10) ?? '',
+      appointment_time: appt.appointment_datetime?.slice(11, 16) ?? '',
+      reason:           appt.reason ?? '',
+      notes:            appt.notes ?? '',
+      status:           appt.status ?? 'Scheduled',
     })
     setFormError('')
     setShowModal(true)
@@ -88,12 +88,19 @@ export default function Appointments() {
     e.preventDefault()
     setFormError('')
     setSaving(true)
+    const payload = {
+      patient_id:           form.patient_id,
+      doctor_id:            form.doctor_id,
+      appointment_datetime: `${form.appointment_date}T${form.appointment_time}`,
+      reason:               form.reason,
+      status:               form.status,
+    }
     try {
       if (editing) {
-        const res = await updateAppointment(editing.id, form)
-        setAppointments((prev) => prev.map((a) => (a.id === editing.id ? res.data : a)))
+        const res = await updateAppointment(editing.appointment_id, payload)
+        setAppointments((prev) => prev.map((a) => (a.appointment_id === editing.appointment_id ? res.data : a)))
       } else {
-        const res = await createAppointment(form)
+        const res = await createAppointment(payload)
         setAppointments((prev) => [res.data, ...prev])
       }
       setShowModal(false)
@@ -167,7 +174,7 @@ export default function Appointments() {
               </tr>
             )}
             {filtered.map((a) => (
-              <tr key={a.id} className="hover:bg-gray-50">
+              <tr key={a.appointment_id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium">
                   {a.patient_first_name} {a.patient_last_name}
                 </td>
@@ -175,10 +182,10 @@ export default function Appointments() {
                   Dr. {a.doctor_first_name} {a.doctor_last_name}
                 </td>
                 <td className="px-4 py-3 text-gray-600">
-                  {a.appointment_date?.slice(0, 10)}
+                  {a.appointment_datetime?.slice(0, 10)}
                 </td>
                 <td className="px-4 py-3 text-gray-600">
-                  {a.appointment_time?.slice(0, 5)}
+                  {a.appointment_datetime?.slice(11, 16)}
                 </td>
                 <td className="px-4 py-3 text-gray-500 max-w-xs truncate">
                   {a.reason ?? '—'}
@@ -222,7 +229,7 @@ export default function Appointments() {
               >
                 <option value="">Select patient…</option>
                 {patients.map((p) => (
-                  <option key={p.id} value={p.id}>
+                  <option key={p.patient_id} value={p.patient_id}>
                     {p.first_name} {p.last_name}
                   </option>
                 ))}
@@ -238,7 +245,7 @@ export default function Appointments() {
               >
                 <option value="">Select doctor…</option>
                 {doctors.map((d) => (
-                  <option key={d.id} value={d.id}>
+                  <option key={d.doctor_id} value={d.doctor_id}>
                     Dr. {d.first_name} {d.last_name}
                     {d.specialty ? ` — ${d.specialty}` : ''}
                   </option>

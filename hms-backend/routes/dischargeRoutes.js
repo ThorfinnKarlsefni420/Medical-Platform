@@ -12,7 +12,7 @@ const {
 
 router.use(authenticate);
 
-router.get('/',    authorize('admin', 'doctor'),              getAllDischarges);
+router.get('/',    authorize('admin', 'doctor', 'nurse'),     getAllDischarges);
 router.get('/:id', authorize('admin', 'doctor', 'nurse'),     getDischargeById);
 router.post('/',   authorize('admin', 'doctor'),              createDischarge);
 router.put('/:id', authorize('admin', 'doctor'),              updateDischarge);

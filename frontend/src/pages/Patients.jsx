@@ -18,7 +18,7 @@ const EMPTY_FORM = {
 
 export default function Patients() {
   const { user } = useAuth()
-  const canCreate = ['admin', 'doctor', 'nurse'].includes(user?.role)
+  const canCreate = ['admin', 'receptionist', 'doctor', 'nurse'].includes(user?.role)
 
   const [patients, setPatients]   = useState([])
   const [loading, setLoading]     = useState(true)

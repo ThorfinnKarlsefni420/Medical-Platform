@@ -54,7 +54,7 @@ export default function Dashboard() {
   const greeting = user?.profile?.first_name
     ? `Welcome, ${user.profile.first_name}`
     : user?.role === 'admin'
-    ? 'Welcome, Receptionist'
+    ? 'Welcome, Admin'
     : `Welcome back`
 
   return (

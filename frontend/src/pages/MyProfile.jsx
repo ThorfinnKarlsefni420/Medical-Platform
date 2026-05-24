@@ -1,18 +1,40 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { getMyLabResults } from '../api/labResults'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const GENDERS = ['Male', 'Female', 'Other']
+
+const RESULT_STATUS_BADGE = {
+  'Pending Review':     'bg-amber-100 text-amber-700',
+  'Results Reviewed':   'bg-green-100 text-green-700',
+  'Requires Follow-up': 'bg-red-100 text-red-600',
+}
 
 export default function MyProfile() {
   const { user, updateProfile } = useAuth()
   const p = user?.profile
 
+  const [tab, setTab]         = useState('profile')
   const [editing, setEditing] = useState(false)
-  const [form, setForm] = useState(null)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  const [form, setForm]       = useState(null)
+  const [saving, setSaving]   = useState(false)
+  const [error, setError]     = useState('')
   const [success, setSuccess] = useState(false)
+
+  const [labResults, setLabResults]     = useState([])
+  const [labLoading, setLabLoading]     = useState(false)
+  const [labError, setLabError]         = useState('')
+
+  useEffect(() => {
+    if (tab === 'labs') {
+      setLabLoading(true)
+      getMyLabResults()
+        .then((res) => setLabResults(res.data))
+        .catch(() => setLabError('Failed to load lab results.'))
+        .finally(() => setLabLoading(false))
+    }
+  }, [tab])
 
   function startEdit() {
     setForm({
@@ -65,18 +87,77 @@ export default function MyProfile() {
     <div className="max-w-2xl">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
-        {!editing && (
+        {tab === 'profile' && !editing && (
           <button onClick={startEdit} className="btn-secondary">Edit details</button>
         )}
       </div>
 
-      {success && !editing && (
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 border-b border-gray-200">
+        {[
+          { key: 'profile', label: 'Profile' },
+          { key: 'labs',    label: 'Lab Results' },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              tab === key
+                ? 'border-purple-700 text-purple-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'labs' && (
+        <div>
+          {labLoading && <p className="text-gray-500 text-sm">Loading…</p>}
+          {labError  && <p className="text-red-600 text-sm">{labError}</p>}
+          {!labLoading && !labError && labResults.length === 0 && (
+            <p className="text-gray-400 text-sm">No lab results on file yet.</p>
+          )}
+          {!labLoading && labResults.length > 0 && (
+            <div className="card overflow-hidden">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    {['Test', 'Result', 'Status', 'Date'].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {labResults.map((r) => (
+                    <tr key={r.result_id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium text-gray-900">{r.test_name}</td>
+                      <td className="px-4 py-3 text-gray-600 max-w-xs whitespace-pre-wrap">{r.result_data}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${RESULT_STATUS_BADGE[r.status]}`}>
+                          {r.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">
+                        {r.reviewed_at ? new Date(r.reviewed_at).toLocaleDateString() : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'profile' && success && !editing && (
         <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2 mb-4">
           Profile updated successfully.
         </p>
       )}
 
-      {!editing ? (
+      {tab === 'profile' && !editing ? (
         <div className="card divide-y divide-gray-100">
           <Section label="Full name"     value={`${p.first_name} ${p.last_name}`} />
           <Section label="Date of birth" value={p.date_of_birth?.slice(0, 10) ?? '—'} />
@@ -86,7 +167,7 @@ export default function MyProfile() {
           <Section label="Email"         value={user.email} />
           <Section label="Address"       value={p.address ?? '—'} />
         </div>
-      ) : (
+      ) : tab === 'profile' ? (
         <div className="card p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -149,7 +230,7 @@ export default function MyProfile() {
             </div>
           </form>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

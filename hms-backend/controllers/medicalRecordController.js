@@ -4,7 +4,7 @@ const getAllMedicalRecords = async (_req, res, next) => {
   try {
     const { rows } = await pool.query(
       `SELECT mr.*,
-              a.appointment_datetime,
+              a.appointment_datetime, a.patient_id,
               p.first_name AS patient_first_name, p.last_name AS patient_last_name,
               d.first_name AS doctor_first_name,  d.last_name  AS doctor_last_name
        FROM medical_records mr
@@ -46,10 +46,22 @@ const createMedicalRecord = async (req, res, next) => {
     const { rows } = await pool.query(
       `INSERT INTO medical_records (appointment_id, consultation_notes, diagnosis)
        VALUES ($1, $2, $3)
-       RETURNING *`,
+       RETURNING record_id`,
       [appointment_id, consultation_notes, diagnosis]
     );
-    res.status(201).json(rows[0]);
+    const { rows: full } = await pool.query(
+      `SELECT mr.*,
+              a.appointment_datetime, a.patient_id,
+              p.first_name AS patient_first_name, p.last_name AS patient_last_name,
+              d.first_name AS doctor_first_name,  d.last_name  AS doctor_last_name
+       FROM medical_records mr
+       JOIN appointments a ON mr.appointment_id = a.appointment_id
+       JOIN patients     p ON a.patient_id = p.patient_id
+       JOIN doctors      d ON a.doctor_id  = d.doctor_id
+       WHERE mr.record_id = $1`,
+      [rows[0].record_id]
+    );
+    res.status(201).json(full[0]);
   } catch (err) {
     next(err);
   }

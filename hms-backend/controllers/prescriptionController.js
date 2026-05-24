@@ -1,18 +1,27 @@
 const pool = require('../config/db');
 
+// Shared SELECT fragment — handles both outpatient (record_id) and inpatient (admission_id) paths
+const SELECT_PRESCRIPTIONS = `
+  SELECT pr.*,
+         COALESCE(p_out.first_name, p_in.first_name) AS patient_first_name,
+         COALESCE(p_out.last_name,  p_in.last_name)  AS patient_last_name,
+         COALESCE(d_out.first_name, d_in.first_name) AS doctor_first_name,
+         COALESCE(d_out.last_name,  d_in.last_name)  AS doctor_last_name
+  FROM prescriptions pr
+  LEFT JOIN medical_records mr_out ON pr.record_id    = mr_out.record_id
+  LEFT JOIN appointments    a_out  ON mr_out.appointment_id = a_out.appointment_id
+  LEFT JOIN patients        p_out  ON a_out.patient_id = p_out.patient_id
+  LEFT JOIN doctors         d_out  ON a_out.doctor_id  = d_out.doctor_id
+  LEFT JOIN admissions      adm    ON pr.admission_id  = adm.admission_id
+  LEFT JOIN medical_records mr_in  ON adm.record_id    = mr_in.record_id
+  LEFT JOIN appointments    a_in   ON mr_in.appointment_id = a_in.appointment_id
+  LEFT JOIN patients        p_in   ON a_in.patient_id  = p_in.patient_id
+  LEFT JOIN doctors         d_in   ON a_in.doctor_id   = d_in.doctor_id
+`;
+
 const getAllPrescriptions = async (_req, res, next) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT pr.*,
-              p.first_name AS patient_first_name, p.last_name AS patient_last_name,
-              d.first_name AS doctor_first_name,  d.last_name  AS doctor_last_name
-       FROM prescriptions pr
-       JOIN medical_records mr ON pr.record_id = mr.record_id
-       JOIN appointments    a  ON mr.appointment_id = a.appointment_id
-       JOIN patients        p  ON a.patient_id = p.patient_id
-       JOIN doctors         d  ON a.doctor_id  = d.doctor_id
-       ORDER BY pr.prescription_id DESC`
-    );
+    const { rows } = await pool.query(SELECT_PRESCRIPTIONS + ' ORDER BY pr.prescription_id DESC');
     res.json(rows);
   } catch (err) {
     next(err);
@@ -22,15 +31,7 @@ const getAllPrescriptions = async (_req, res, next) => {
 const getPrescriptionById = async (req, res, next) => {
   try {
     const { rows } = await pool.query(
-      `SELECT pr.*,
-              p.first_name AS patient_first_name, p.last_name AS patient_last_name,
-              d.first_name AS doctor_first_name,  d.last_name  AS doctor_last_name
-       FROM prescriptions pr
-       JOIN medical_records mr ON pr.record_id = mr.record_id
-       JOIN appointments    a  ON mr.appointment_id = a.appointment_id
-       JOIN patients        p  ON a.patient_id = p.patient_id
-       JOIN doctors         d  ON a.doctor_id  = d.doctor_id
-       WHERE pr.prescription_id = $1`,
+      SELECT_PRESCRIPTIONS + ' WHERE pr.prescription_id = $1',
       [req.params.id]
     );
     if (!rows.length) return res.status(404).json({ message: 'Prescription not found' });
@@ -40,16 +41,32 @@ const getPrescriptionById = async (req, res, next) => {
   }
 };
 
-const createPrescription = async (req, res, next) => {
-  const { record_id, medication_name, dosage, instructions, status } = req.body;
+const getAdmissionPrescriptions = async (req, res, next) => {
   try {
     const { rows } = await pool.query(
-      `INSERT INTO prescriptions (record_id, medication_name, dosage, instructions, status)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [record_id, medication_name, dosage, instructions, status ?? 'Created']
+      SELECT_PRESCRIPTIONS + ' WHERE pr.admission_id = $1 ORDER BY pr.prescription_id DESC',
+      [req.params.admissionId]
     );
-    res.status(201).json(rows[0]);
+    res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const createPrescription = async (req, res, next) => {
+  const { record_id, admission_id, medication_name, dosage, instructions, status } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO prescriptions (record_id, admission_id, medication_name, dosage, instructions, status)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING prescription_id`,
+      [record_id ?? null, admission_id ?? null, medication_name, dosage, instructions, status ?? 'Created']
+    );
+    const { rows: full } = await pool.query(
+      SELECT_PRESCRIPTIONS + ' WHERE pr.prescription_id = $1',
+      [rows[0].prescription_id]
+    );
+    res.status(201).json(full[0]);
   } catch (err) {
     next(err);
   }
@@ -62,11 +79,15 @@ const updatePrescription = async (req, res, next) => {
       `UPDATE prescriptions
        SET medication_name = $1, dosage = $2, instructions = $3, status = $4
        WHERE prescription_id = $5
-       RETURNING *`,
+       RETURNING prescription_id`,
       [medication_name, dosage, instructions, status, req.params.id]
     );
     if (!rows.length) return res.status(404).json({ message: 'Prescription not found' });
-    res.json(rows[0]);
+    const { rows: full } = await pool.query(
+      SELECT_PRESCRIPTIONS + ' WHERE pr.prescription_id = $1',
+      [rows[0].prescription_id]
+    );
+    res.json(full[0]);
   } catch (err) {
     next(err);
   }
@@ -88,6 +109,7 @@ const deletePrescription = async (req, res, next) => {
 module.exports = {
   getAllPrescriptions,
   getPrescriptionById,
+  getAdmissionPrescriptions,
   createPrescription,
   updatePrescription,
   deletePrescription,

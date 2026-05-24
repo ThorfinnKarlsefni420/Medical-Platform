@@ -12,8 +12,8 @@ const {
 
 router.use(authenticate);
 
-router.get('/',    authorize('admin', 'doctor', 'nurse'),            getAllMedicalRecords);
-router.get('/:id', authorize('admin', 'doctor', 'nurse', 'patient'), getMedicalRecordById);
+router.get('/',    authorize('admin', 'receptionist', 'doctor', 'nurse'),            getAllMedicalRecords);
+router.get('/:id', authorize('admin', 'receptionist', 'doctor', 'nurse', 'patient'), getMedicalRecordById);
 router.post('/',   authorize('admin', 'doctor'),                      createMedicalRecord);
 router.put('/:id', authorize('admin', 'doctor'),                      updateMedicalRecord);
 router.delete('/:id', authorize('admin'),                             deleteMedicalRecord);

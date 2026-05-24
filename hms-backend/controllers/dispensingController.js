@@ -40,16 +40,34 @@ const getDispensingById = async (req, res, next) => {
 
 const createDispensing = async (req, res, next) => {
   const { prescription_id, quantity_dispensed, status } = req.body;
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query(
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(
       `INSERT INTO pharmacy_dispensing (prescription_id, quantity_dispensed, status)
        VALUES ($1, $2, $3)
        RETURNING *`,
       [prescription_id, quantity_dispensed, status ?? 'Stock Verified']
     );
+
+    // Deduct from drug_inventory where medication_name matches the prescription
+    await client.query(
+      `UPDATE drug_inventory di
+       SET quantity_in_stock = GREATEST(0, di.quantity_in_stock - $1)
+       FROM prescriptions pr
+       WHERE pr.prescription_id = $2
+         AND di.medication_name ILIKE pr.medication_name`,
+      [quantity_dispensed, prescription_id]
+    );
+
+    await client.query('COMMIT');
     res.status(201).json(rows[0]);
   } catch (err) {
+    await client.query('ROLLBACK');
     next(err);
+  } finally {
+    client.release();
   }
 };
 

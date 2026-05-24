@@ -12,10 +12,10 @@ const {
 
 router.use(authenticate);
 
-router.get('/',    authorize('admin', 'doctor', 'nurse'),                     getAllAppointments);
-router.get('/:id', authorize('admin', 'doctor', 'nurse', 'patient'),          getAppointmentById);
-router.post('/',   authorize('admin', 'doctor'),                               createAppointment);
-router.put('/:id', authorize('admin', 'doctor'),                               updateAppointment);
-router.delete('/:id', authorize('admin'),                                      deleteAppointment);
+router.get('/',    authorize('admin', 'receptionist', 'doctor', 'nurse'),                     getAllAppointments);
+router.get('/:id', authorize('admin', 'receptionist', 'doctor', 'nurse', 'patient'),          getAppointmentById);
+router.post('/',   authorize('admin', 'receptionist', 'doctor'),                               createAppointment);
+router.put('/:id', authorize('admin', 'receptionist', 'doctor'),                               updateAppointment);
+router.delete('/:id', authorize('admin'),                                                      deleteAppointment);
 
 module.exports = router;

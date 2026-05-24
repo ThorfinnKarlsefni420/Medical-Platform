@@ -4,6 +4,8 @@ const getAllDischarges = async (_req, res, next) => {
   try {
     const { rows } = await pool.query(
       `SELECT dc.*,
+              ad.admission_date,
+              a.patient_id,
               p.first_name AS patient_first_name, p.last_name AS patient_last_name,
               w.ward_name, b.bed_number
        FROM discharges dc

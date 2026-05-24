@@ -4,8 +4,9 @@ const getAllAdmissions = async (_req, res, next) => {
   try {
     const { rows } = await pool.query(
       `SELECT ad.*,
+              a.patient_id,
               p.first_name AS patient_first_name, p.last_name AS patient_last_name,
-              w.ward_name, b.bed_number
+              w.ward_name, b.bed_number, b.ward_id
        FROM admissions ad
        JOIN medical_records mr ON ad.record_id = mr.record_id
        JOIN appointments    a  ON mr.appointment_id = a.appointment_id
@@ -62,14 +63,25 @@ const createAdmission = async (req, res, next) => {
 const updateAdmission = async (req, res, next) => {
   const { bed_id, inpatient_monitoring_notes, status } = req.body;
   try {
+    const cur = await pool.query('SELECT bed_id FROM admissions WHERE admission_id = $1', [req.params.id]);
+    if (!cur.rows.length) return res.status(404).json({ message: 'Admission not found' });
+    const oldBedId = cur.rows[0].bed_id;
+    const newBedId = bed_id ?? oldBedId;
+
     const { rows } = await pool.query(
       `UPDATE admissions
        SET bed_id = $1, inpatient_monitoring_notes = $2, status = $3
        WHERE admission_id = $4
        RETURNING *`,
-      [bed_id, inpatient_monitoring_notes, status, req.params.id]
+      [newBedId, inpatient_monitoring_notes, status, req.params.id]
     );
     if (!rows.length) return res.status(404).json({ message: 'Admission not found' });
+
+    if (newBedId !== oldBedId) {
+      await pool.query('UPDATE beds SET is_occupied = FALSE WHERE bed_id = $1', [oldBedId]);
+      await pool.query('UPDATE beds SET is_occupied = TRUE  WHERE bed_id = $1', [newBedId]);
+    }
+
     res.json(rows[0]);
   } catch (err) {
     next(err);
