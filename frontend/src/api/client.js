@@ -17,7 +17,11 @@ client.interceptors.response.use(
   (err) => {
     if (err.response?.status === 401) {
       localStorage.removeItem('hms_token')
-      window.location.href = '/login'
+      // Don't redirect if already on login — avoids infinite reload when
+      // the startup getMe() call returns 401 before the user has logged in.
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(err)
   }
