@@ -16,19 +16,9 @@ const pool = new Pool({
   connectionTimeoutMillis: 2000,
 });
 
-// Verify connection and apply any missing schema objects.
-// Non-fatal: log the error and let the pool retry on the first request
-// rather than crashing the process (important for cloud cold-start timing).
-pool.connect((err, client, release) => {
-  if (err) {
-    console.error('PostgreSQL startup check failed (will retry on first request):', err.message);
-    return;
-  }
-  console.log('PostgreSQL connected successfully');
-
-  // Ensure deleted_records table exists — two separate queries because
-  // node-postgres does not reliably execute multiple statements in one call.
-  client.query(`
+// expose a migration helper so server.js can await it before listen()
+async function runMigrations() {
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS deleted_records (
       table_name VARCHAR(50) NOT NULL,
       record_id  INT         NOT NULL,
@@ -36,18 +26,14 @@ pool.connect((err, client, release) => {
       deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (table_name, record_id)
     )
-  `)
-  .then(() => client.query(`
+  `);
+  await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_deleted_records_table
       ON deleted_records(table_name, record_id)
-  `))
-  .then(() => {
-    console.log('deleted_records table ensured');
-  })
-  .catch((e) => {
-    console.error('Failed to ensure deleted_records table:', e.message);
-  })
-  .finally(() => release());
-});
+  `);
+  console.log('Migrations complete');
+}
+
+pool.runMigrations = runMigrations;
 
 module.exports = pool;

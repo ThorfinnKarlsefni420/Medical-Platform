@@ -23,6 +23,9 @@ const admissionRoutes     = require('./routes/admissionRoutes');
 const dischargeRoutes     = require('./routes/dischargeRoutes');
 const errorHandler        = require('./middleware/errorHandler');
 
+const pool = require('./config/db');
+const { runMigrations } = pool;
+
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
@@ -72,6 +75,13 @@ app.use('/api/discharges',          dischargeRoutes);
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`HMS server running on http://localhost:${PORT}`);
-});
+runMigrations()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`HMS server running on http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Startup migration failed, exiting:', err.message);
+    process.exit(1);
+  });
