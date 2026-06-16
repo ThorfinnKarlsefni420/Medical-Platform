@@ -280,6 +280,7 @@ export default function Lab() {
 
       {/* RESULTS TAB */}
       {tab === 'results' && (
+        <>
         <div className="card overflow-hidden">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -336,6 +337,7 @@ export default function Lab() {
           </table>
         </div>
         <Pagination page={resultsPage} total={resultsTotal} limit={limit} onPageChange={setResultsPage} />
+        </>
       )}
 
       {/* New order modal */}

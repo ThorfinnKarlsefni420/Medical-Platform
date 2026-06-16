@@ -248,6 +248,7 @@ export default function Pharmacy() {
       )}
 
       {tab === 'history' && (
+        <>
         <div className="card overflow-hidden">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -289,6 +290,7 @@ export default function Pharmacy() {
           </table>
         </div>
         <Pagination page={dispPage} total={dispTotal} limit={limit} onPageChange={setDispPage} />
+        </>
       )}
 
       {/* Dispense modal */}
