@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { getPatients, createPatient } from '../api/patients'
+import { getPatients, createPatient, deletePatient } from '../api/patients'
 import { register } from '../api/auth'
 import Modal from '../components/common/Modal'
 import Pagination from '../components/common/Pagination'
@@ -20,6 +20,7 @@ const EMPTY_FORM = {
 export default function Patients() {
   const { user } = useAuth()
   const canCreate = ['admin', 'receptionist', 'doctor', 'nurse'].includes(user?.role)
+  const canDelete = user?.role === 'admin'
 
   const [patients, setPatients]   = useState([])
   const [total, setTotal]         = useState(0)
@@ -33,6 +34,24 @@ export default function Patients() {
   const [form, setForm]           = useState(EMPTY_FORM)
   const [saving, setSaving]       = useState(false)
   const [formError, setFormError] = useState('')
+
+  const [confirmId, setConfirmId]   = useState(null)   // patient_id pending delete
+  const [deleting, setDeleting]     = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+
+  async function handleDelete(id) {
+    setDeleting(true)
+    setDeleteError('')
+    try {
+      await deletePatient(id)
+      setPatients((prev) => prev.filter((p) => p.patient_id !== id))
+      setConfirmId(null)
+    } catch (err) {
+      setDeleteError(err.response?.data?.message ?? 'Failed to delete patient.')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -150,6 +169,7 @@ export default function Patients() {
               {['Name', 'DOB', 'Gender', 'Blood type', 'Phone', 'Email'].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
               ))}
+              {canDelete && <th className="px-4 py-3" />}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -168,11 +188,45 @@ export default function Patients() {
                 <td className="px-4 py-3 text-gray-600">{p.blood_type ?? '—'}</td>
                 <td className="px-4 py-3 text-gray-600">{p.contact_number ?? '—'}</td>
                 <td className="px-4 py-3 text-gray-500">{p.email ?? '—'}</td>
+                {canDelete && (
+                  <td className="px-4 py-3 text-right">
+                    {confirmId === p.patient_id ? (
+                      <span className="inline-flex items-center gap-2 text-sm">
+                        <span className="text-gray-600">Delete?</span>
+                        <button
+                          onClick={() => handleDelete(p.patient_id)}
+                          disabled={deleting}
+                          className="text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
+                        >
+                          {deleting ? 'Deleting…' : 'Yes'}
+                        </button>
+                        <button
+                          onClick={() => { setConfirmId(null); setDeleteError('') }}
+                          disabled={deleting}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          No
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => { setConfirmId(p.patient_id); setDeleteError('') }}
+                        className="text-sm text-red-500 hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {deleteError && (
+        <p className="text-sm text-red-600 mt-2">{deleteError}</p>
+      )}
 
       <Pagination page={page} total={total} limit={limit} onPageChange={setPage} />
 

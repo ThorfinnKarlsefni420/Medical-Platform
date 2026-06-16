@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getPatient, updatePatient } from '../api/patients'
+import { getPatient, updatePatient, deletePatient } from '../api/patients'
 import { getAppointments } from '../api/appointments'
 import { getMedicalRecords } from '../api/medicalRecords'
+import { useAuth } from '../contexts/AuthContext'
 import Modal from '../components/common/Modal'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
@@ -24,6 +25,11 @@ function age(dob) {
 export default function PatientDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const canDelete  = user?.role === 'admin'
+  const staffRoles = ['admin', 'receptionist', 'doctor', 'nurse']
+  const canViewAppointments = staffRoles.includes(user?.role)
+  const canViewRecords      = staffRoles.includes(user?.role)
 
   const [patient, setPatient]         = useState(null)
   const [appointments, setAppts]      = useState([])
@@ -38,16 +44,38 @@ export default function PatientDetail() {
   const [saving, setSaving]           = useState(false)
   const [formError, setFormError]     = useState('')
 
+  // Delete state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting]                   = useState(false)
+  const [deleteError, setDeleteError]             = useState('')
+
+  async function handleDelete() {
+    setDeleting(true)
+    setDeleteError('')
+    try {
+      await deletePatient(id)
+      navigate('/patients')
+    } catch (err) {
+      setDeleteError(err.response?.data?.message ?? 'Failed to delete patient.')
+      setDeleting(false)
+    }
+  }
+
   useEffect(() => {
-    Promise.all([getPatient(id), getAppointments(), getMedicalRecords()])
+    const empty = Promise.resolve({ data: { data: [] } })
+    Promise.all([
+      getPatient(id),
+      canViewAppointments ? getAppointments() : empty,
+      canViewRecords      ? getMedicalRecords() : empty,
+    ])
       .then(([p, a, r]) => {
         setPatient(p.data)
-        setAppts(a.data.filter((x) => String(x.patient_id) === String(id)))
-        setRecords(r.data.filter((x) => String(x.patient_id) === String(id)))
+        setAppts((a.data.data ?? []).filter((x) => String(x.patient_id) === String(id)))
+        setRecords((r.data.data ?? []).filter((x) => String(x.patient_id) === String(id)))
       })
       .catch(() => setError('Failed to load patient.'))
       .finally(() => setLoading(false))
-  }, [id])
+  }, [id, canViewAppointments, canViewRecords])
 
   function openEdit() {
     setForm({
@@ -124,9 +152,19 @@ export default function PatientDetail() {
             </div>
           </div>
         </div>
-        <button onClick={openEdit} className="btn-secondary text-sm shrink-0">
-          Edit info
-        </button>
+        <div className="flex gap-2 shrink-0">
+          <button onClick={openEdit} className="btn-secondary text-sm">
+            Edit info
+          </button>
+          {canDelete && (
+            <button
+              onClick={() => { setDeleteError(''); setShowDeleteConfirm(true) }}
+              className="text-sm px-3 py-1.5 rounded-md border border-red-300 text-red-600 hover:bg-red-50 transition-colors"
+            >
+              Delete patient
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats row */}
@@ -227,6 +265,29 @@ export default function PatientDetail() {
           )}
         </div>
       )}
+
+      {/* Delete confirmation modal */}
+      <Modal open={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} title="Delete Patient">
+        <p className="text-sm text-gray-700 mb-4">
+          Are you sure you want to delete <span className="font-semibold">{patient.first_name} {patient.last_name}</span>?
+          This will permanently remove all their records and cannot be undone.
+        </p>
+        {deleteError && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 mb-4">{deleteError}</p>
+        )}
+        <div className="flex justify-end gap-3">
+          <button className="btn-secondary" onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>
+            Cancel
+          </button>
+          <button
+            className="px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+            onClick={handleDelete}
+            disabled={deleting}
+          >
+            {deleting ? 'Deleting…' : 'Yes, delete'}
+          </button>
+        </div>
+      </Modal>
 
       {/* Edit modal */}
       <Modal open={showEdit} onClose={() => setShowEdit(false)} title="Edit Patient Info" size="lg">

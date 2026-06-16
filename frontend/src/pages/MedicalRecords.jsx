@@ -38,7 +38,9 @@ const RX_STATUS_BADGE = {
 
 export default function MedicalRecords() {
   const { user }   = useAuth()
-  const canCreate  = ['admin', 'doctor'].includes(user?.role)
+  const canCreate        = ['admin', 'doctor'].includes(user?.role)
+  const canViewLabOrders = ['admin', 'doctor', 'lab_technician'].includes(user?.role)
+  const canViewRx        = ['admin', 'doctor', 'pharmacist'].includes(user?.role)
 
   const [records,      setRecords]      = useState([])
   const [total,        setTotal]        = useState(0)
@@ -73,10 +75,15 @@ export default function MedicalRecords() {
 
   useEffect(() => {
     setLoading(true)
-    const base = [getMedicalRecords(page, limit), getLabOrders(1, 100), getPrescriptions(1, 100)]
+    const empty = Promise.resolve({ data: { data: [] } })
+    const base = [
+      getMedicalRecords(page, limit),
+      canViewLabOrders ? getLabOrders(1, 100) : empty,
+      canViewRx        ? getPrescriptions(1, 100) : empty,
+    ]
     const extra = canCreate
       ? [getPatients(1, 100), getAppointments(1, 100)]
-      : [Promise.resolve({ data: { data: [] } }), Promise.resolve({ data: { data: [] } })]
+      : [empty, empty]
 
     Promise.all([...base, ...extra])
       .then(([recs, orders, rxs, pats, appts]) => {
@@ -89,7 +96,7 @@ export default function MedicalRecords() {
       })
       .catch(() => setError('Failed to load medical records.'))
       .finally(() => setLoading(false))
-  }, [canCreate, page])
+  }, [canCreate, canViewLabOrders, canViewRx, page])
 
   function openCreate() {
     setEditing(null)
