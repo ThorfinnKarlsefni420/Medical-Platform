@@ -1,5 +1,5 @@
-const pool = require('../config/db');
-const xlsx = require('xlsx');
+const pool  = require('../config/db');
+const Excel = require('exceljs');
 const { parsePagination, paginatedResponse } = require('../utils/paginate');
 
 const getAllDrugs = async (req, res, next) => {
@@ -100,37 +100,42 @@ const importDrugs = async (req, res, next) => {
   if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
 
   try {
-    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
-    const sheet    = workbook.Sheets[workbook.SheetNames[0]];
-    const rows     = xlsx.utils.sheet_to_json(sheet, { defval: '' });
+    const workbook = new Excel.Workbook();
+    await workbook.xlsx.load(req.file.buffer);
+    const sheet = workbook.worksheets[0];
+    if (!sheet) return res.status(400).json({ message: 'File is empty or has no sheets' });
 
-    if (!rows.length) return res.status(400).json({ message: 'File is empty' });
+    // Read header row to build column index map
+    const headerRow = sheet.getRow(1);
+    const normalise = (key) => String(key ?? '').toLowerCase().replace(/[\s-]+/g, '_');
+    const colIndex  = {};
+    headerRow.eachCell((cell, colNum) => { colIndex[normalise(cell.value)] = colNum; });
 
-    const normalise = (key) => key.toLowerCase().replace(/[\s-]+/g, '_');
-    const normRows  = rows.map((r) =>
-      Object.fromEntries(Object.entries(r).map(([k, v]) => [normalise(k), v]))
-    );
-
-    const required = ['medication_name'];
-    const missing  = required.filter((f) => !Object.keys(normRows[0] ?? {}).includes(f));
-    if (missing.length) {
-      return res.status(400).json({ message: `Missing required column(s): ${missing.join(', ')}` });
+    if (!colIndex['medication_name']) {
+      return res.status(400).json({ message: 'Missing required column: medication_name' });
     }
+
+    const dataRows = [];
+    sheet.eachRow((row, rowNum) => {
+      if (rowNum === 1) return; // skip header
+      dataRows.push({ row, rowNum });
+    });
+
+    if (!dataRows.length) return res.status(400).json({ message: 'File has no data rows' });
 
     let added = 0, updated = 0;
     const errors = [];
 
-    for (let i = 0; i < normRows.length; i++) {
-      const row  = normRows[i];
-      const name = String(row.medication_name ?? '').trim();
-      if (!name) { errors.push(`Row ${i + 2}: medication_name is empty`); continue; }
+    for (const { row, rowNum } of dataRows) {
+      const name = String(row.getCell(colIndex['medication_name']).value ?? '').trim();
+      if (!name) { errors.push(`Row ${rowNum}: medication_name is empty`); continue; }
 
-      const unit      = String(row.unit ?? 'tablets').trim() || 'tablets';
-      const qty       = parseInt(row.quantity_in_stock ?? row.quantity ?? 0, 10);
-      const threshold = parseInt(row.reorder_threshold ?? row.reorder_level ?? 10, 10);
+      const unit      = String(row.getCell(colIndex['unit'])?.value ?? 'tablets').trim() || 'tablets';
+      const qty       = parseInt(row.getCell(colIndex['quantity_in_stock'] ?? colIndex['quantity'])?.value ?? 0, 10);
+      const threshold = parseInt(row.getCell(colIndex['reorder_threshold'] ?? colIndex['reorder_level'])?.value ?? 10, 10);
 
-      if (isNaN(qty) || qty < 0)            { errors.push(`Row ${i + 2}: invalid quantity_in_stock`); continue; }
-      if (isNaN(threshold) || threshold < 0) { errors.push(`Row ${i + 2}: invalid reorder_threshold`); continue; }
+      if (isNaN(qty) || qty < 0)             { errors.push(`Row ${rowNum}: invalid quantity_in_stock`); continue; }
+      if (isNaN(threshold) || threshold < 0) { errors.push(`Row ${rowNum}: invalid reorder_threshold`); continue; }
 
       try {
         const { rows: result } = await pool.query(
@@ -146,11 +151,11 @@ const importDrugs = async (req, res, next) => {
         );
         result[0].inserted ? added++ : updated++;
       } catch (err) {
-        errors.push(`Row ${i + 2} (${name}): ${err.message}`);
+        errors.push(`Row ${rowNum} (${name}): ${err.message}`);
       }
     }
 
-    res.json({ added, updated, errors, total: normRows.length });
+    res.json({ added, updated, errors, total: dataRows.length });
   } catch (err) {
     next(err);
   }

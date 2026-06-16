@@ -16,11 +16,13 @@ const pool = new Pool({
   connectionTimeoutMillis: 2000,
 });
 
-// Verify connection and apply any missing schema objects
+// Verify connection and apply any missing schema objects.
+// Non-fatal: log the error and let the pool retry on the first request
+// rather than crashing the process (important for cloud cold-start timing).
 pool.connect((err, client, release) => {
   if (err) {
-    console.error('Failed to connect to PostgreSQL:', err.message);
-    process.exit(1);
+    console.error('PostgreSQL startup check failed (will retry on first request):', err.message);
+    return;
   }
   console.log('PostgreSQL connected successfully');
 
