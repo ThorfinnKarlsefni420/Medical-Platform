@@ -171,7 +171,7 @@ const acceptInvite = async (req, res, next) => {
     await client.query('COMMIT');
 
     const token = jwt.sign(
-      { userId: user.user_id, email: user.email, role: user.role },
+      { userId: user.user_id, email: user.email, role: user.role, patientId: null },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );

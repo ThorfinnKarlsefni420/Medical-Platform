@@ -8,6 +8,7 @@ import {
 } from '../api/labResults'
 import { getMedicalRecords } from '../api/medicalRecords'
 import Modal from '../components/common/Modal'
+import Pagination from '../components/common/Pagination'
 
 // Linear status progression for lab orders
 const ORDER_PROGRESSION = {
@@ -38,7 +39,12 @@ export default function Lab() {
 
   const [tab, setTab]             = useState('orders')
   const [orders, setOrders]       = useState([])
+  const [ordersTotal, setOrdersTotal] = useState(0)
+  const [ordersPage, setOrdersPage]   = useState(1)
   const [results, setResults]     = useState([])
+  const [resultsTotal, setResultsTotal] = useState(0)
+  const [resultsPage, setResultsPage]   = useState(1)
+  const limit = 50
   const [records, setRecords]     = useState([])
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState('')
@@ -61,18 +67,19 @@ export default function Lab() {
   const [viewResult, setViewResult] = useState(null)
 
   useEffect(() => {
-    const promises = [getLabOrders(), getLabResults()]
-    if (isDoctor || isAdmin) promises.push(getMedicalRecords())
+    setLoading(true)
+    const promises = [getLabOrders(ordersPage, limit), getLabResults(resultsPage, limit)]
+    if (isDoctor || isAdmin) promises.push(getMedicalRecords(1, 100))
 
     Promise.all(promises)
       .then(([o, r, rec]) => {
-        setOrders(o.data)
-        setResults(r.data)
-        if (rec) setRecords(rec.data)
+        setOrders(o.data.data); setOrdersTotal(o.data.total)
+        setResults(r.data.data); setResultsTotal(r.data.total)
+        if (rec) setRecords(rec.data.data ?? rec.data)
       })
       .catch(() => setError('Failed to load lab data.'))
       .finally(() => setLoading(false))
-  }, [isDoctor, isAdmin])
+  }, [isDoctor, isAdmin, ordersPage, resultsPage])
 
   // Build a set of order IDs that already have a result
   const resultedOrderIds = new Set(results.map((r) => r.lab_order_id))
@@ -267,6 +274,7 @@ export default function Lab() {
               </tbody>
             </table>
           </div>
+          <Pagination page={ordersPage} total={ordersTotal} limit={limit} onPageChange={setOrdersPage} />
         </>
       )}
 
@@ -327,6 +335,7 @@ export default function Lab() {
             </tbody>
           </table>
         </div>
+        <Pagination page={resultsPage} total={resultsTotal} limit={limit} onPageChange={setResultsPage} />
       )}
 
       {/* New order modal */}

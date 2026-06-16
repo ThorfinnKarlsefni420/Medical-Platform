@@ -4,15 +4,22 @@ const pool   = require('../config/db');
 const { ROLES } = require('../config/permissions');
 
 const SALT_ROUNDS = 12;
+const COOKIE_NAME = 'hms_token';
 
 const STAFF_ROLES = ['admin', 'receptionist', 'doctor', 'nurse', 'pharmacist', 'lab_technician'];
+
+const COOKIE_OPTS = {
+  httpOnly: true,
+  sameSite: 'strict',
+  secure: process.env.NODE_ENV === 'production',
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+};
 
 const signToken = (payload) =>
   jwt.sign(payload, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   });
 
-// Fetch a patient profile row; returns null if patient_id is falsy
 async function fetchPatientProfile(client, patient_id) {
   if (!patient_id) return null;
   const { rows } = await client.query(
@@ -25,15 +32,10 @@ async function fetchPatientProfile(client, patient_id) {
 }
 
 // POST /api/auth/register
-// - role=patient  → open, no token required
-//   If profile fields (first_name, last_name, date_of_birth) are included, creates the
-//   patients row and the users row in a single transaction.
-// - any staff role → requires a valid admin Bearer token
 const register = async (req, res, next) => {
   const {
     email, password, role,
     doctor_id, patient_id,
-    // patient profile fields
     first_name, last_name, date_of_birth, gender, blood_type, contact_number, address,
   } = req.body;
 
@@ -62,7 +64,6 @@ const register = async (req, res, next) => {
     }
   }
 
-  // Patient self-registration: create patient profile + user account atomically
   if (role === 'patient' && first_name && last_name && date_of_birth) {
     const client = await pool.connect();
     try {
@@ -89,7 +90,8 @@ const register = async (req, res, next) => {
 
       const user    = userRes.rows[0];
       const profile = await fetchPatientProfile(pool, newPatientId);
-      const token   = signToken({ userId: user.user_id, email: user.email, role: user.role });
+      const token   = signToken({ userId: user.user_id, email: user.email, role: user.role, patientId: newPatientId });
+      res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
       return res.status(201).json({ token, user: { ...user, profile } });
     } catch (err) {
       await client.query('ROLLBACK');
@@ -99,7 +101,6 @@ const register = async (req, res, next) => {
     }
   }
 
-  // Staff accounts or patient with pre-existing patient_id
   try {
     const hashed = await bcrypt.hash(password, SALT_ROUNDS);
     const { rows } = await pool.query(
@@ -110,7 +111,8 @@ const register = async (req, res, next) => {
     );
     const user    = rows[0];
     const profile = await fetchPatientProfile(pool, user.patient_id);
-    const token   = signToken({ userId: user.user_id, email: user.email, role: user.role });
+    const token   = signToken({ userId: user.user_id, email: user.email, role: user.role, patientId: user.patient_id ?? null });
+    res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
     res.status(201).json({ token, user: { ...user, profile } });
   } catch (err) {
     next(err);
@@ -132,7 +134,6 @@ const login = async (req, res, next) => {
     );
     const user = rows[0];
 
-    // Constant-time comparison prevents timing attacks even when user doesn't exist
     const passwordMatch = user
       ? await bcrypt.compare(password, user.password)
       : await bcrypt.compare(password, '$2b$12$invalidhashfortimingnullcase00');
@@ -142,7 +143,8 @@ const login = async (req, res, next) => {
     }
 
     const profile = await fetchPatientProfile(pool, user.patient_id);
-    const token   = signToken({ userId: user.user_id, email: user.email, role: user.role });
+    const token   = signToken({ userId: user.user_id, email: user.email, role: user.role, patientId: user.patient_id ?? null });
+    res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
     res.json({
       token,
       user: {
@@ -157,6 +159,12 @@ const login = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+};
+
+// POST /api/auth/logout
+const logout = (_req, res) => {
+  res.clearCookie(COOKIE_NAME, { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production' });
+  res.json({ message: 'Logged out' });
 };
 
 // GET /api/auth/me
@@ -176,7 +184,7 @@ const getMe = async (req, res, next) => {
   }
 };
 
-// PUT /api/auth/profile  — patient updates their own linked profile
+// PUT /api/auth/profile
 const updateProfile = async (req, res, next) => {
   const { first_name, last_name, date_of_birth, gender, blood_type, contact_number, address } = req.body;
 
@@ -211,4 +219,33 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, getMe, updateProfile };
+// POST /api/auth/seed-admin
+// One-shot bootstrap: creates the first admin account only if none exists.
+// Remove this endpoint once the admin account is confirmed in production.
+const seedAdmin = async (req, res, next) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ message: 'email and password are required' });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ message: 'Password must be at least 8 characters' });
+  }
+
+  try {
+    const existing = await pool.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 1`);
+    if (existing.rows.length > 0) {
+      return res.status(403).json({ message: 'An admin account already exists. Endpoint disabled.' });
+    }
+
+    const hash = await bcrypt.hash(password, SALT_ROUNDS);
+    const { rows } = await pool.query(
+      `INSERT INTO users (email, password, role) VALUES ($1, $2, 'admin') RETURNING id, email, role`,
+      [email, hash]
+    );
+    res.status(201).json({ message: 'Admin account created', user: rows[0] });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { register, login, logout, getMe, updateProfile, seedAdmin };

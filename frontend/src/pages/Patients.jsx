@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { getPatients, createPatient } from '../api/patients'
 import { register } from '../api/auth'
 import Modal from '../components/common/Modal'
+import Pagination from '../components/common/Pagination'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const GENDERS = ['Male', 'Female', 'Other']
@@ -21,6 +22,9 @@ export default function Patients() {
   const canCreate = ['admin', 'receptionist', 'doctor', 'nurse'].includes(user?.role)
 
   const [patients, setPatients]   = useState([])
+  const [total, setTotal]         = useState(0)
+  const [page, setPage]           = useState(1)
+  const limit = 50
   const [loading, setLoading]     = useState(true)
   const [error, setError]         = useState('')
   const [search, setSearch]       = useState('')
@@ -31,11 +35,12 @@ export default function Patients() {
   const [formError, setFormError] = useState('')
 
   useEffect(() => {
-    getPatients()
-      .then((res) => setPatients(res.data))
+    setLoading(true)
+    getPatients(page, limit)
+      .then((res) => { setPatients(res.data.data); setTotal(res.data.total) })
       .catch(() => setError('Failed to load patients.'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [page])
 
   function openCreate() {
     setForm(EMPTY_FORM)
@@ -168,6 +173,8 @@ export default function Patients() {
           </tbody>
         </table>
       </div>
+
+      <Pagination page={page} total={total} limit={limit} onPageChange={setPage} />
 
       <Modal open={showModal} onClose={() => setShowModal(false)} title="Register Patient" size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">

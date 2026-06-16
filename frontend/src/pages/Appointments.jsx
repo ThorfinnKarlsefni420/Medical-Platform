@@ -8,6 +8,7 @@ import {
 import { getPatients } from '../api/patients'
 import { getDoctors } from '../api/doctors'
 import Modal from '../components/common/Modal'
+import Pagination from '../components/common/Pagination'
 
 const STATUS_OPTIONS = ['Scheduled', 'Completed', 'Cancelled', 'No-Show']
 
@@ -33,6 +34,9 @@ export default function Appointments() {
   const canBook = ['admin', 'receptionist', 'doctor', 'nurse'].includes(user?.role)
 
   const [appointments, setAppointments] = useState([])
+  const [total, setTotal]               = useState(0)
+  const [page, setPage]                 = useState(1)
+  const limit = 50
   const [patients, setPatients] = useState([])
   const [doctors, setDoctors] = useState([])
   const [loading, setLoading] = useState(true)
@@ -48,19 +52,21 @@ export default function Appointments() {
   const [search, setSearch] = useState('')
 
   useEffect(() => {
+    setLoading(true)
     Promise.all([
-      getAppointments(),
-      canBook ? getPatients() : Promise.resolve({ data: [] }),
+      getAppointments(page, limit),
+      canBook ? getPatients(1, 100) : Promise.resolve({ data: { data: [] } }),
       canBook ? getDoctors() : Promise.resolve({ data: [] }),
     ])
       .then(([appts, pats, docs]) => {
-        setAppointments(appts.data)
-        setPatients(pats.data)
+        setAppointments(appts.data.data)
+        setTotal(appts.data.total)
+        setPatients(pats.data.data ?? pats.data)
         setDoctors(docs.data)
       })
       .catch(() => setError('Failed to load appointments.'))
       .finally(() => setLoading(false))
-  }, [canBook])
+  }, [canBook, page])
 
   function openCreate() {
     setEditing(null)
@@ -210,6 +216,8 @@ export default function Appointments() {
           </tbody>
         </table>
       </div>
+
+      <Pagination page={page} total={total} limit={limit} onPageChange={setPage} />
 
       <Modal
         open={showModal}

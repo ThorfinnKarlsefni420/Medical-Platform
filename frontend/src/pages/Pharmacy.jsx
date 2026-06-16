@@ -4,6 +4,7 @@ import { getPrescriptions, updatePrescription } from '../api/prescriptions'
 import { getDispensings, createDispensing } from '../api/dispensing'
 import { getDrugs } from '../api/drugInventory'
 import Modal from '../components/common/Modal'
+import Pagination from '../components/common/Pagination'
 
 const STATUS_BADGE = {
   'Created':           'bg-gray-100 text-gray-600',
@@ -28,7 +29,12 @@ export default function Pharmacy() {
 
   const [tab, setTab]                   = useState('queue')
   const [prescriptions, setPrescriptions] = useState([])
+  const [rxTotal, setRxTotal]             = useState(0)
+  const [rxPage, setRxPage]               = useState(1)
   const [dispensings, setDispensings]     = useState([])
+  const [dispTotal, setDispTotal]         = useState(0)
+  const [dispPage, setDispPage]           = useState(1)
+  const limit = 50
   const [loading, setLoading]             = useState(true)
   const [error, setError]                 = useState('')
 
@@ -43,20 +49,21 @@ export default function Pharmacy() {
   const [dispenseError, setDispenseError]   = useState('')
 
   useEffect(() => {
+    setLoading(true)
     const canAccessDispensing = isPharmacist || isAdmin
     const extras = canAccessDispensing
-      ? [getDispensings(), getDrugs()]
-      : [Promise.resolve({ data: [] }), Promise.resolve({ data: [] })]
+      ? [getDispensings(dispPage, limit), getDrugs(1, 100)]
+      : [Promise.resolve({ data: { data: [], total: 0 } }), Promise.resolve({ data: { data: [] } })]
 
-    Promise.all([getPrescriptions(), ...extras])
+    Promise.all([getPrescriptions(rxPage, limit), ...extras])
       .then(([pRes, dRes, drugRes]) => {
-        setPrescriptions(pRes.data)
-        setDispensings(dRes.data)
-        setDrugs(drugRes.data)
+        setPrescriptions(pRes.data.data); setRxTotal(pRes.data.total)
+        setDispensings(dRes.data.data ?? dRes.data); setDispTotal(dRes.data.total ?? 0)
+        setDrugs(drugRes.data.data ?? drugRes.data)
       })
       .catch(() => setError('Failed to load pharmacy data.'))
       .finally(() => setLoading(false))
-  }, [isPharmacist, isAdmin])
+  }, [isPharmacist, isAdmin, rxPage, dispPage])
 
   async function handleSendToPharmacy(rx) {
     try {
@@ -103,9 +110,9 @@ export default function Pharmacy() {
       setPrescriptions((prev) =>
         prev.map((p) => p.prescription_id === dispenseTarget.prescription_id ? updatedRx.data : p)
       )
-      const [dRes, drugRes] = await Promise.all([getDispensings(), getDrugs()])
-      setDispensings(dRes.data)
-      setDrugs(drugRes.data)
+      const [dRes, drugRes] = await Promise.all([getDispensings(dispPage, limit), getDrugs(1, 100)])
+      setDispensings(dRes.data.data ?? dRes.data); setDispTotal(dRes.data.total ?? 0)
+      setDrugs(drugRes.data.data ?? drugRes.data)
       setDispenseTarget(null)
     } catch (err) {
       setDispenseError(err.response?.data?.message ?? 'Failed to record dispensing.')
@@ -236,6 +243,7 @@ export default function Pharmacy() {
               </tbody>
             </table>
           </div>
+          <Pagination page={rxPage} total={rxTotal} limit={limit} onPageChange={setRxPage} />
         </>
       )}
 
@@ -280,6 +288,7 @@ export default function Pharmacy() {
             </tbody>
           </table>
         </div>
+        <Pagination page={dispPage} total={dispTotal} limit={limit} onPageChange={setDispPage} />
       )}
 
       {/* Dispense modal */}

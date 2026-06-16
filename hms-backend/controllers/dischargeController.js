@@ -1,13 +1,17 @@
 const pool = require('../config/db');
+const { parsePagination, paginatedResponse } = require('../utils/paginate');
+const { logAudit } = require('../middleware/audit');
 
-const getAllDischarges = async (_req, res, next) => {
+const getAllDischarges = async (req, res, next) => {
+  const { page, limit, offset } = parsePagination(req.query);
   try {
     const { rows } = await pool.query(
       `SELECT dc.*,
               ad.admission_date,
               a.patient_id,
               p.first_name AS patient_first_name, p.last_name AS patient_last_name,
-              w.ward_name, b.bed_number
+              w.ward_name, b.bed_number,
+              COUNT(*) OVER() AS _total
        FROM discharges dc
        JOIN admissions      ad ON dc.admission_id = ad.admission_id
        JOIN medical_records mr ON ad.record_id = mr.record_id
@@ -15,9 +19,11 @@ const getAllDischarges = async (_req, res, next) => {
        JOIN patients        p  ON a.patient_id = p.patient_id
        JOIN beds            b  ON ad.bed_id = b.bed_id
        JOIN wards           w  ON b.ward_id  = w.ward_id
-       ORDER BY dc.discharge_date DESC`
+       ORDER BY dc.discharge_date DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
     );
-    res.json(rows);
+    res.json(paginatedResponse(rows, page, limit));
   } catch (err) {
     next(err);
   }
@@ -55,7 +61,6 @@ const createDischarge = async (req, res, next) => {
        RETURNING *`,
       [admission_id, discharge_summary, follow_up_plan]
     );
-    // Update admission status and free the bed
     const admRow = await pool.query(
       `UPDATE admissions SET status = 'Discharged' WHERE admission_id = $1 RETURNING bed_id`,
       [admission_id]
@@ -63,6 +68,7 @@ const createDischarge = async (req, res, next) => {
     if (admRow.rows.length) {
       await pool.query('UPDATE beds SET is_occupied = FALSE WHERE bed_id = $1', [admRow.rows[0].bed_id]);
     }
+    logAudit(req, 'CREATE', 'discharges', rows[0].discharge_id);
     res.status(201).json(rows[0]);
   } catch (err) {
     next(err);
@@ -80,6 +86,7 @@ const updateDischarge = async (req, res, next) => {
       [discharge_summary, follow_up_plan, req.params.id]
     );
     if (!rows.length) return res.status(404).json({ message: 'Discharge not found' });
+    logAudit(req, 'UPDATE', 'discharges', rows[0].discharge_id);
     res.json(rows[0]);
   } catch (err) {
     next(err);

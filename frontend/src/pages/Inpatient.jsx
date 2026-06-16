@@ -122,12 +122,12 @@ export default function Inpatient() {
   const [followUpDone, setFollowUpDone]       = useState(false)
 
   useEffect(() => {
-    Promise.all([getWards(), getBeds(), getAdmissions(), getDischarges()])
+    Promise.all([getWards(), getBeds(), getAdmissions(1, 100), getDischarges(1, 100)])
       .then(([w, b, a, d]) => {
         setWards(w.data)
         setBeds(b.data)
-        setAdmissions(a.data)
-        setDischarges(d.data)
+        setAdmissions(a.data.data ?? a.data)
+        setDischarges(d.data.data ?? d.data)
       })
       .catch(() => setError('Failed to load inpatient data.'))
       .finally(() => setLoading(false))
@@ -226,8 +226,8 @@ export default function Inpatient() {
         bed_id:                     Number(admitForm.bed_id),
         inpatient_monitoring_notes: admitForm.inpatient_monitoring_notes || null,
       })
-      const [admRes, bedRes] = await Promise.all([getAdmissions(), getBeds()])
-      setAdmissions(admRes.data); setBeds(bedRes.data)
+      const [admRes, bedRes] = await Promise.all([getAdmissions(1, 100), getBeds()])
+      setAdmissions(admRes.data.data ?? admRes.data); setBeds(bedRes.data)
       setShowAdmit(false)
     } catch (err) {
       setAdmitError(err.response?.data?.message ?? 'Failed to admit patient.')

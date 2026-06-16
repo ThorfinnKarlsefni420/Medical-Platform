@@ -1,6 +1,10 @@
 const errorHandler = (err, _req, res, _next) => {
   console.error(err);
 
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ message: 'Request body too large' });
+  }
+
   // PostgreSQL unique violation
   if (err.code === '23505') {
     return res.status(409).json({ message: 'Duplicate entry', detail: err.detail });

@@ -10,6 +10,7 @@ import { getAppointments } from '../api/appointments'
 import { getLabOrders, createLabOrder }       from '../api/labOrders'
 import { getPrescriptions, createPrescription } from '../api/prescriptions'
 import Modal from '../components/common/Modal'
+import Pagination from '../components/common/Pagination'
 
 const EMPTY_FORM = {
   patient_id:         '',
@@ -40,6 +41,9 @@ export default function MedicalRecords() {
   const canCreate  = ['admin', 'doctor'].includes(user?.role)
 
   const [records,      setRecords]      = useState([])
+  const [total,        setTotal]        = useState(0)
+  const [page,         setPage]         = useState(1)
+  const limit = 50
   const [patients,     setPatients]     = useState([])
   const [appointments, setAppointments] = useState([])
   const [labOrders,    setLabOrders]    = useState([])
@@ -68,22 +72,24 @@ export default function MedicalRecords() {
   const [rxError,    setRxError]    = useState('')
 
   useEffect(() => {
-    const base = [getMedicalRecords(), getLabOrders(), getPrescriptions()]
+    setLoading(true)
+    const base = [getMedicalRecords(page, limit), getLabOrders(1, 100), getPrescriptions(1, 100)]
     const extra = canCreate
-      ? [getPatients(), getAppointments()]
-      : [Promise.resolve({ data: [] }), Promise.resolve({ data: [] })]
+      ? [getPatients(1, 100), getAppointments(1, 100)]
+      : [Promise.resolve({ data: { data: [] } }), Promise.resolve({ data: { data: [] } })]
 
     Promise.all([...base, ...extra])
       .then(([recs, orders, rxs, pats, appts]) => {
-        setRecords(recs.data)
-        setLabOrders(orders.data)
-        setPrescriptions(rxs.data)
-        setPatients(pats.data)
-        setAppointments(appts.data)
+        setRecords(recs.data.data)
+        setTotal(recs.data.total)
+        setLabOrders(orders.data.data ?? orders.data)
+        setPrescriptions(rxs.data.data ?? rxs.data)
+        setPatients(pats.data.data ?? pats.data)
+        setAppointments(appts.data.data ?? appts.data)
       })
       .catch(() => setError('Failed to load medical records.'))
       .finally(() => setLoading(false))
-  }, [canCreate])
+  }, [canCreate, page])
 
   function openCreate() {
     setEditing(null)
@@ -263,6 +269,8 @@ export default function MedicalRecords() {
           </tbody>
         </table>
       </div>
+
+      <Pagination page={page} total={total} limit={limit} onPageChange={setPage} />
 
       {/* ── Detail modal ─────────────────────────────────────────── */}
       <Modal open={!!showDetail} onClose={() => setShowDetail(null)} title="Medical Record" size="lg">

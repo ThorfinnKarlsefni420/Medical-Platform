@@ -1,11 +1,17 @@
 const pool = require('../config/db');
+const { parsePagination, paginatedResponse } = require('../utils/paginate');
 
-const getAllPatients = async (_req, res, next) => {
+const getAllPatients = async (req, res, next) => {
+  const { page, limit, offset } = parsePagination(req.query);
   try {
     const { rows } = await pool.query(
-      'SELECT * FROM patients ORDER BY created_at DESC'
+      `SELECT *, COUNT(*) OVER() AS _total
+       FROM patients
+       ORDER BY created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
     );
-    res.json(rows);
+    res.json(paginatedResponse(rows, page, limit));
   } catch (err) {
     next(err);
   }

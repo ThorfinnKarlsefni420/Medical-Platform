@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { login as apiLogin, getMe, updateProfile as apiUpdateProfile } from '../api/auth'
+import { login as apiLogin, logout as apiLogout, getMe, updateProfile as apiUpdateProfile } from '../api/auth'
 
 const AuthContext = createContext(null)
 
@@ -8,31 +8,30 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('hms_token')
-    if (!token) { setLoading(false); return }
-
+    // Restore session via httpOnly cookie; no localStorage dependency
     getMe()
       .then((res) => setUser(res.data))
-      .catch(() => localStorage.removeItem('hms_token'))
+      .catch(() => setUser(null))
       .finally(() => setLoading(false))
   }, [])
 
   async function login(email, password) {
     const res = await apiLogin(email, password)
     const { token, user } = res.data
-    localStorage.setItem('hms_token', token)
+    // Keep token in localStorage for non-cookie environments (e.g. mobile API clients)
+    if (token) localStorage.setItem('hms_token', token)
     setUser(user)
     return user
   }
 
   async function updateProfile(data) {
     const res = await apiUpdateProfile(data)
-    // Merge updated profile back into user state
     setUser((prev) => ({ ...prev, profile: res.data }))
     return res.data
   }
 
-  function logout() {
+  async function logout() {
+    try { await apiLogout() } catch { /* ignore network errors on logout */ }
     localStorage.removeItem('hms_token')
     setUser(null)
   }

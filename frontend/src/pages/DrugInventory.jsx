@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { getDrugs, createDrug, updateDrug, adjustStock, deleteDrug, importDrugs } from '../api/drugInventory'
 import Modal from '../components/common/Modal'
+import Pagination from '../components/common/Pagination'
 
 const EMPTY_DRUG = { medication_name: '', unit: 'tablets', quantity_in_stock: '', reorder_threshold: '10' }
 const UNITS = ['tablets', 'capsules', 'vials', 'ampoules', 'bottles', 'sachets', 'tubes', 'patches']
@@ -24,6 +25,9 @@ export default function DrugInventory() {
   const canEdit = isAdmin || user?.role === 'pharmacist'
 
   const [drugs, setDrugs]       = useState([])
+  const [total, setTotal]       = useState(0)
+  const [page, setPage]         = useState(1)
+  const limit = 50
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState('')
   const [search, setSearch]     = useState('')
@@ -44,11 +48,12 @@ export default function DrugInventory() {
   const [adjustError, setAdjustError]   = useState('')
 
   useEffect(() => {
-    getDrugs()
-      .then((res) => setDrugs(res.data))
+    setLoading(true)
+    getDrugs(page, limit)
+      .then((res) => { setDrugs(res.data.data); setTotal(res.data.total) })
       .catch(() => setError('Failed to load drug inventory.'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [page])
 
   function openAdd() {
     setEditing(null)
@@ -258,6 +263,8 @@ export default function DrugInventory() {
           </tbody>
         </table>
       </div>
+
+      <Pagination page={page} total={total} limit={limit} onPageChange={setPage} />
 
       {/* Add / Edit drug modal */}
       <Modal

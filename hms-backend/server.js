@@ -1,7 +1,10 @@
 require('dotenv').config();
 
-const express = require('express');
-const cors    = require('cors');
+const express      = require('express');
+const cors         = require('cors');
+const helmet       = require('helmet');
+const rateLimit    = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 
 const authRoutes          = require('./routes/authRoutes');
 const staffRoutes         = require('./routes/staffRoutes');
@@ -23,14 +26,34 @@ const errorHandler        = require('./middleware/errorHandler');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL_ALT,
+].filter(Boolean);
+
+app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.length === 0) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
   credentials: true,
 }));
-app.use(express.json());
+app.use(cookieParser());
+app.use(express.json({ limit: '50kb' }));
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many login attempts. Please try again in 15 minutes.' },
+});
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
+app.use('/api/auth/login',          loginLimiter);
 app.use('/api/auth',                authRoutes);
 app.use('/api/staff',               staffRoutes);
 app.use('/api/patients',            patientRoutes);

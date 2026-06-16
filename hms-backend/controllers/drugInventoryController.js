@@ -1,12 +1,18 @@
 const pool = require('../config/db');
 const xlsx = require('xlsx');
+const { parsePagination, paginatedResponse } = require('../utils/paginate');
 
-const getAllDrugs = async (_req, res, next) => {
+const getAllDrugs = async (req, res, next) => {
+  const { page, limit, offset } = parsePagination(req.query);
   try {
     const { rows } = await pool.query(
-      'SELECT * FROM drug_inventory ORDER BY medication_name ASC'
+      `SELECT *, COUNT(*) OVER() AS _total
+       FROM drug_inventory
+       ORDER BY medication_name ASC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
     );
-    res.json(rows);
+    res.json(paginatedResponse(rows, page, limit));
   } catch (err) {
     next(err);
   }
@@ -57,7 +63,6 @@ const updateDrug = async (req, res, next) => {
   }
 };
 
-// Adjust stock by a positive or negative delta
 const adjustStock = async (req, res, next) => {
   const { delta } = req.body;
   if (typeof delta !== 'number') {
@@ -91,7 +96,6 @@ const deleteDrug = async (req, res, next) => {
   }
 };
 
-// POST /api/drug-inventory/import  — bulk upsert from CSV or Excel
 const importDrugs = async (req, res, next) => {
   if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
 
@@ -102,7 +106,6 @@ const importDrugs = async (req, res, next) => {
 
     if (!rows.length) return res.status(400).json({ message: 'File is empty' });
 
-    // Normalise header names — tolerate spaces, casing, underscores
     const normalise = (key) => key.toLowerCase().replace(/[\s-]+/g, '_');
     const normRows  = rows.map((r) =>
       Object.fromEntries(Object.entries(r).map(([k, v]) => [normalise(k), v]))
@@ -126,7 +129,7 @@ const importDrugs = async (req, res, next) => {
       const qty       = parseInt(row.quantity_in_stock ?? row.quantity ?? 0, 10);
       const threshold = parseInt(row.reorder_threshold ?? row.reorder_level ?? 10, 10);
 
-      if (isNaN(qty) || qty < 0)       { errors.push(`Row ${i + 2}: invalid quantity_in_stock`); continue; }
+      if (isNaN(qty) || qty < 0)            { errors.push(`Row ${i + 2}: invalid quantity_in_stock`); continue; }
       if (isNaN(threshold) || threshold < 0) { errors.push(`Row ${i + 2}: invalid reorder_threshold`); continue; }
 
       try {
