@@ -9,6 +9,7 @@ const {
   acceptInvite,
   updateStaffStatus,
   resendInvite,
+  deleteUser,
 } = require('../controllers/staffController');
 
 // Public — no auth required
@@ -20,6 +21,7 @@ router.use(authenticate);
 router.get('/',                              authorize('admin'), getStaff);
 router.post('/invite',                       authorize('admin'), sendInvite);
 router.patch('/:id/status',                  authorize('admin'), updateStaffStatus);
+router.delete('/:id',                        authorize('admin'), deleteUser);
 router.post('/invites/:inviteId/resend',     authorize('admin'), resendInvite);
 
 module.exports = router;

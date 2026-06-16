@@ -237,4 +237,42 @@ const resendInvite = async (req, res, next) => {
   }
 };
 
-module.exports = { getStaff, sendInvite, validateInvite, acceptInvite, updateStaffStatus, resendInvite };
+// DELETE /api/staff/:id  — hard-delete a user account (admin only)
+// For patient users this also removes the linked patients row.
+const deleteUser = async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Fetch the user so we know the role and any linked patient
+    const { rows } = await client.query(
+      'SELECT user_id, role, patient_id, doctor_id FROM users WHERE user_id = $1',
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'User not found' });
+    const target = rows[0];
+
+    // Prevent deleting own account
+    if (target.user_id === req.user.userId) {
+      return res.status(400).json({ message: 'Cannot delete your own account' });
+    }
+
+    // Delete the user account (cascades to patient row if FK allows, else we handle it)
+    await client.query('DELETE FROM users WHERE user_id = $1', [target.user_id]);
+
+    // If the user had a linked patient profile, delete it now
+    if (target.patient_id) {
+      await client.query('DELETE FROM patients WHERE patient_id = $1', [target.patient_id]);
+    }
+
+    await client.query('COMMIT');
+    res.status(204).send();
+  } catch (err) {
+    await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client.release();
+  }
+};
+
+module.exports = { getStaff, sendInvite, validateInvite, acceptInvite, updateStaffStatus, resendInvite, deleteUser };
