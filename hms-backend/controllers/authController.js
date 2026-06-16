@@ -219,33 +219,4 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
-// POST /api/auth/seed-admin
-// One-shot bootstrap: creates the first admin account only if none exists.
-// Remove this endpoint once the admin account is confirmed in production.
-const seedAdmin = async (req, res, next) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ message: 'email and password are required' });
-  }
-  if (password.length < 8) {
-    return res.status(400).json({ message: 'Password must be at least 8 characters' });
-  }
-
-  try {
-    const existing = await pool.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 1`);
-    if (existing.rows.length > 0) {
-      return res.status(403).json({ message: 'An admin account already exists. Endpoint disabled.' });
-    }
-
-    const hash = await bcrypt.hash(password, SALT_ROUNDS);
-    const { rows } = await pool.query(
-      `INSERT INTO users (email, password, role) VALUES ($1, $2, 'admin') RETURNING id, email, role`,
-      [email, hash]
-    );
-    res.status(201).json({ message: 'Admin account created', user: rows[0] });
-  } catch (err) {
-    next(err);
-  }
-};
-
-module.exports = { register, login, logout, getMe, updateProfile, seedAdmin };
+module.exports = { register, login, logout, getMe, updateProfile };

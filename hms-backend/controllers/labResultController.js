@@ -36,13 +36,18 @@ const getLabResultById = async (req, res, next) => {
   try {
     const { rows } = await pool.query(
       `SELECT lr.*, lo.test_name, lo.record_id,
-              a.patient_id,
-              p.first_name AS patient_first_name, p.last_name AS patient_last_name
+              COALESCE(a_out.patient_id, a_in.patient_id) AS patient_id,
+              COALESCE(p_out.first_name, p_in.first_name) AS patient_first_name,
+              COALESCE(p_out.last_name,  p_in.last_name)  AS patient_last_name
        FROM lab_results lr
-       JOIN lab_orders      lo ON lr.lab_order_id = lo.lab_order_id
-       JOIN medical_records mr ON lo.record_id = mr.record_id
-       JOIN appointments    a  ON mr.appointment_id = a.appointment_id
-       JOIN patients        p  ON a.patient_id = p.patient_id
+       JOIN lab_orders      lo     ON lr.lab_order_id   = lo.lab_order_id
+       LEFT JOIN medical_records mr_out ON lo.record_id    = mr_out.record_id
+       LEFT JOIN appointments    a_out  ON mr_out.appointment_id = a_out.appointment_id
+       LEFT JOIN patients        p_out  ON a_out.patient_id = p_out.patient_id
+       LEFT JOIN admissions      adm    ON lo.admission_id  = adm.admission_id
+       LEFT JOIN medical_records mr_in  ON adm.record_id    = mr_in.record_id
+       LEFT JOIN appointments    a_in   ON mr_in.appointment_id = a_in.appointment_id
+       LEFT JOIN patients        p_in   ON a_in.patient_id  = p_in.patient_id
        WHERE lr.result_id = $1`,
       [req.params.id]
     );

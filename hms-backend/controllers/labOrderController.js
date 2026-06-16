@@ -70,6 +70,12 @@ const getAdmissionLabOrders = async (req, res, next) => {
 
 const createLabOrder = async (req, res, next) => {
   const { record_id, admission_id, test_name, status } = req.body;
+  if (!record_id && !admission_id) {
+    return res.status(400).json({ message: 'Either record_id or admission_id is required' });
+  }
+  if (!test_name) {
+    return res.status(400).json({ message: 'test_name is required' });
+  }
   try {
     const { rows } = await pool.query(
       `INSERT INTO lab_orders (record_id, admission_id, test_name, status)

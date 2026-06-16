@@ -77,6 +77,12 @@ const getAdmissionPrescriptions = async (req, res, next) => {
 
 const createPrescription = async (req, res, next) => {
   const { record_id, admission_id, medication_name, dosage, instructions, status } = req.body;
+  if (!record_id && !admission_id) {
+    return res.status(400).json({ message: 'Either record_id or admission_id is required' });
+  }
+  if (!medication_name || !dosage) {
+    return res.status(400).json({ message: 'medication_name and dosage are required' });
+  }
   try {
     const { rows } = await pool.query(
       `INSERT INTO prescriptions (record_id, admission_id, medication_name, dosage, instructions, status)

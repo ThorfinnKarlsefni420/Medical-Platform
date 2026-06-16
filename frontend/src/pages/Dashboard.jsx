@@ -27,12 +27,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     getAppointments()
-      .then((res) => setAppointments(res.data))
+      .then((res) => setAppointments(res.data.data ?? res.data ?? []))
       .catch(() => {})
       .finally(() => setLoadingAppts(false))
 
     if (isReceptionist || isClinical) {
-      getPatients().then((res) => setPatients(res.data)).catch(() => {})
+      getPatients().then((res) => setPatients(res.data.data ?? res.data ?? [])).catch(() => {})
     }
   }, [isReceptionist, isClinical])
 

@@ -54,6 +54,12 @@ const getDischargeById = async (req, res, next) => {
 
 const createDischarge = async (req, res, next) => {
   const { admission_id, discharge_summary, follow_up_plan } = req.body;
+  if (!admission_id) {
+    return res.status(400).json({ message: 'admission_id is required' });
+  }
+  if (!discharge_summary?.trim()) {
+    return res.status(400).json({ message: 'discharge_summary is required' });
+  }
   try {
     const { rows } = await pool.query(
       `INSERT INTO discharges (admission_id, discharge_summary, follow_up_plan)
