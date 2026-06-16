@@ -26,7 +26,8 @@ pool.connect((err, client, release) => {
   }
   console.log('PostgreSQL connected successfully');
 
-  // Ensure deleted_records table exists (idempotent)
+  // Ensure deleted_records table exists — two separate queries because
+  // node-postgres does not reliably execute multiple statements in one call.
   client.query(`
     CREATE TABLE IF NOT EXISTS deleted_records (
       table_name VARCHAR(50) NOT NULL,
@@ -34,14 +35,19 @@ pool.connect((err, client, release) => {
       deleted_by INT REFERENCES users(user_id) ON DELETE SET NULL,
       deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (table_name, record_id)
-    );
+    )
+  `)
+  .then(() => client.query(`
     CREATE INDEX IF NOT EXISTS idx_deleted_records_table
-      ON deleted_records(table_name, record_id);
-  `).then(() => {
+      ON deleted_records(table_name, record_id)
+  `))
+  .then(() => {
     console.log('deleted_records table ensured');
-  }).catch((e) => {
+  })
+  .catch((e) => {
     console.error('Failed to ensure deleted_records table:', e.message);
-  }).finally(() => release());
+  })
+  .finally(() => release());
 });
 
 module.exports = pool;
