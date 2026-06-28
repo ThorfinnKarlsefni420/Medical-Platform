@@ -3,6 +3,7 @@ import axios from 'axios'
 const client = axios.create({
   baseURL: '/api',
   withCredentials: true, // send httpOnly cookie on every request
+  timeout: 30000,        // 30s — gives Render's free tier time to cold-start
 })
 
 // Keep Authorization header support for environments without cookie support
