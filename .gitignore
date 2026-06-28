@@ -3,3 +3,4 @@ dist/
 .env
 *.env.local
 .DS_Store
+hms-backend/database/hms_dump.sql

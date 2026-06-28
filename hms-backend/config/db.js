@@ -10,6 +10,8 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   user:     process.env.DB_USER,
   password: process.env.DB_PASSWORD,
+  // Supabase and other managed providers require SSL
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
   // Keep a few idle connections ready; limit burst connections
   max: 10,
   idleTimeoutMillis: 30000,
