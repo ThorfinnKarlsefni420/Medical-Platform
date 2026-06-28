@@ -151,7 +151,7 @@ export default function StaffManagement() {
   const allRows = [
     ...staff.map((s) => ({
       key:     `user-${s.user_id}`,
-      name:    s.first_name ? `${s.first_name} ${s.last_name}` : '—',
+      name:    s.first_name ? `${s.first_name} ${s.last_name}` : s.email,
       email:   s.email,
       role:    s.role,
       status:  s.status,
