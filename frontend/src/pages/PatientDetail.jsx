@@ -161,7 +161,7 @@ export default function PatientDetail() {
               onClick={() => { setDeleteError(''); setShowDeleteConfirm(true) }}
               className="text-sm px-3 py-1.5 rounded-md border border-red-300 text-red-600 hover:bg-red-50 transition-colors"
             >
-              Delete patient
+              Deactivate patient
             </button>
           )}
         </div>
@@ -269,8 +269,8 @@ export default function PatientDetail() {
       {/* Delete confirmation modal */}
       <Modal open={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} title="Delete Patient">
         <p className="text-sm text-gray-700 mb-4">
-          Are you sure you want to delete <span className="font-semibold">{patient.first_name} {patient.last_name}</span>?
-          This will permanently remove all their records and cannot be undone.
+          Are you sure you want to deactivate <span className="font-semibold">{patient.first_name} {patient.last_name}</span>?
+          They will be removed from all active workflows. Their medical records will be retained as required by law.
         </p>
         {deleteError && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 mb-4">{deleteError}</p>
@@ -284,7 +284,7 @@ export default function PatientDetail() {
             onClick={handleDelete}
             disabled={deleting}
           >
-            {deleting ? 'Deleting…' : 'Yes, delete'}
+            {deleting ? 'Deactivating…' : 'Yes, deactivate'}
           </button>
         </div>
       </Modal>

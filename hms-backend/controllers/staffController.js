@@ -2,6 +2,7 @@ const pool    = require('../config/db');
 const crypto  = require('crypto');
 const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
+const { logAudit } = require('../middleware/audit');
 
 const SALT_ROUNDS        = 12;
 const INVITE_EXPIRY_HOURS = 48;
@@ -257,12 +258,15 @@ const deleteUser = async (req, res, next) => {
       return res.status(400).json({ message: 'Cannot delete your own account' });
     }
 
-    // Delete the user account (cascades to patient row if FK allows, else we handle it)
+    // Hard-delete the user account (staff credential, not a health record)
     await client.query('DELETE FROM users WHERE user_id = $1', [target.user_id]);
 
-    // If the user had a linked patient profile, delete it now
+    // If the user had a linked patient profile, soft-delete it to satisfy retention requirements
     if (target.patient_id) {
-      await client.query('DELETE FROM patients WHERE patient_id = $1', [target.patient_id]);
+      await client.query(
+        'UPDATE patients SET deleted_at = NOW() WHERE patient_id = $1 AND deleted_at IS NULL',
+        [target.patient_id]
+      );
     }
 
     await client.query('COMMIT');
@@ -291,6 +295,7 @@ const resetPassword = async (req, res, next) => {
       [hashed, req.params.id]
     );
     if (!rows.length) return res.status(404).json({ message: 'User not found' });
+    logAudit(req, 'RESET_PASSWORD', 'users', rows[0].user_id);
     res.json({ message: 'Password updated successfully' });
   } catch (err) {
     next(err);

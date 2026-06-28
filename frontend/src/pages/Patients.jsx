@@ -221,11 +221,11 @@ export default function Patients() {
       {/* Delete confirmation modal */}
       <Modal open={!!deleteTarget} onClose={closeDeleteModal} title="Delete Patient">
         <p className="text-sm text-gray-700 mb-4">
-          Are you sure you want to delete{' '}
+          Are you sure you want to deactivate{' '}
           <span className="font-semibold">
             {deleteTarget?.first_name} {deleteTarget?.last_name}
           </span>?
-          This will permanently remove all their records and cannot be undone.
+          They will be removed from all active workflows. Their medical records will be retained as required by law.
         </p>
         {deleteError && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 mb-4">{deleteError}</p>
@@ -239,7 +239,7 @@ export default function Patients() {
             onClick={handleDelete}
             disabled={deleting}
           >
-            {deleting ? 'Deleting…' : 'Yes, delete'}
+            {deleting ? 'Deactivating…' : 'Yes, deactivate'}
           </button>
         </div>
       </Modal>

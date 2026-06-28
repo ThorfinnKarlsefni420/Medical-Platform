@@ -31,6 +31,16 @@ async function runMigrations() {
     CREATE INDEX IF NOT EXISTS idx_deleted_records_table
       ON deleted_records(table_name, record_id)
   `);
+  // Soft-delete columns — require table ownership (postgres on local dev, app user on Render).
+  // On Render this succeeds automatically; locally, run database/migration_patients_appointments_soft_deletes.sql as postgres.
+  try {
+    await pool.query(`ALTER TABLE patients     ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE appointments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_patients_deleted_at     ON patients(deleted_at)     WHERE deleted_at IS NULL`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_appointments_deleted_at ON appointments(deleted_at) WHERE deleted_at IS NULL`);
+  } catch (err) {
+    console.warn('Soft-delete migration skipped (run as table owner to apply):', err.message);
+  }
   console.log('Migrations complete');
 }
 
