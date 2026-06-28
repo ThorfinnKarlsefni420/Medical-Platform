@@ -35,17 +35,29 @@ export default function Patients() {
   const [saving, setSaving]       = useState(false)
   const [formError, setFormError] = useState('')
 
-  const [confirmId, setConfirmId]   = useState(null)   // patient_id pending delete
-  const [deleting, setDeleting]     = useState(false)
-  const [deleteError, setDeleteError] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState(null)  // patient object pending delete
+  const [deleting, setDeleting]         = useState(false)
+  const [deleteError, setDeleteError]   = useState('')
 
-  async function handleDelete(id) {
+  function openDeleteModal(patient) {
+    setDeleteTarget(patient)
+    setDeleteError('')
+  }
+
+  function closeDeleteModal() {
+    if (deleting) return
+    setDeleteTarget(null)
+    setDeleteError('')
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return
     setDeleting(true)
     setDeleteError('')
     try {
-      await deletePatient(id)
-      setPatients((prev) => prev.filter((p) => p.patient_id !== id))
-      setConfirmId(null)
+      await deletePatient(deleteTarget.patient_id)
+      setPatients((prev) => prev.filter((p) => p.patient_id !== deleteTarget.patient_id))
+      setDeleteTarget(null)
     } catch (err) {
       setDeleteError(err.response?.data?.message ?? 'Failed to delete patient.')
     } finally {
@@ -190,32 +202,12 @@ export default function Patients() {
                 <td className="px-4 py-3 text-gray-500">{p.email ?? '—'}</td>
                 {canDelete && (
                   <td className="px-4 py-3 text-right">
-                    {confirmId === p.patient_id ? (
-                      <span className="inline-flex items-center gap-2 text-sm">
-                        <span className="text-gray-600">Delete?</span>
-                        <button
-                          onClick={() => handleDelete(p.patient_id)}
-                          disabled={deleting}
-                          className="text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
-                        >
-                          {deleting ? 'Deleting…' : 'Yes'}
-                        </button>
-                        <button
-                          onClick={() => { setConfirmId(null); setDeleteError('') }}
-                          disabled={deleting}
-                          className="text-gray-500 hover:text-gray-700"
-                        >
-                          No
-                        </button>
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => { setConfirmId(p.patient_id); setDeleteError('') }}
-                        className="text-sm text-red-500 hover:text-red-700"
-                      >
-                        Delete
-                      </button>
-                    )}
+                    <button
+                      onClick={() => openDeleteModal(p)}
+                      className="text-sm text-red-500 hover:text-red-700"
+                    >
+                      Delete
+                    </button>
                   </td>
                 )}
               </tr>
@@ -224,11 +216,33 @@ export default function Patients() {
         </table>
       </div>
 
-      {deleteError && (
-        <p className="text-sm text-red-600 mt-2">{deleteError}</p>
-      )}
-
       <Pagination page={page} total={total} limit={limit} onPageChange={setPage} />
+
+      {/* Delete confirmation modal */}
+      <Modal open={!!deleteTarget} onClose={closeDeleteModal} title="Delete Patient">
+        <p className="text-sm text-gray-700 mb-4">
+          Are you sure you want to delete{' '}
+          <span className="font-semibold">
+            {deleteTarget?.first_name} {deleteTarget?.last_name}
+          </span>?
+          This will permanently remove all their records and cannot be undone.
+        </p>
+        {deleteError && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 mb-4">{deleteError}</p>
+        )}
+        <div className="flex justify-end gap-3">
+          <button className="btn-secondary" onClick={closeDeleteModal} disabled={deleting}>
+            Cancel
+          </button>
+          <button
+            className="px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+            onClick={handleDelete}
+            disabled={deleting}
+          >
+            {deleting ? 'Deleting…' : 'Yes, delete'}
+          </button>
+        </div>
+      </Modal>
 
       <Modal open={showModal} onClose={() => setShowModal(false)} title="Register Patient" size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getStaff, sendInvite, updateStaffStatus, resendInvite } from '../api/staff'
+import { getStaff, sendInvite, updateStaffStatus, resendInvite, resetPassword } from '../api/staff'
 import Modal from '../components/common/Modal'
 
 const ROLE_LABELS = {
@@ -40,6 +40,12 @@ export default function StaffManagement() {
 
   const [inviteUrl, setInviteUrl]       = useState(null)
   const [copied, setCopied]             = useState(false)
+
+  const [resetTarget, setResetTarget]   = useState(null)  // user row for password reset
+  const [resetPwd, setResetPwd]         = useState('')
+  const [resetting, setResetting]       = useState(false)
+  const [resetError, setResetError]     = useState('')
+  const [resetSuccess, setResetSuccess] = useState(false)
 
   useEffect(() => {
     load()
@@ -95,6 +101,38 @@ export default function StaffManagement() {
       load()
     } catch {
       setError('Failed to resend invite.')
+    }
+  }
+
+  function openReset(row) {
+    setResetTarget(row)
+    setResetPwd('')
+    setResetError('')
+    setResetSuccess(false)
+  }
+
+  function closeReset() {
+    if (resetting) return
+    setResetTarget(null)
+    setResetPwd('')
+    setResetError('')
+    setResetSuccess(false)
+  }
+
+  async function handleReset(e) {
+    e.preventDefault()
+    if (resetPwd.length < 8) {
+      return setResetError('Password must be at least 8 characters.')
+    }
+    setResetting(true)
+    setResetError('')
+    try {
+      await resetPassword(resetTarget.raw.user_id, resetPwd)
+      setResetSuccess(true)
+    } catch (err) {
+      setResetError(err.response?.data?.message ?? 'Failed to reset password.')
+    } finally {
+      setResetting(false)
     }
   }
 
@@ -188,22 +226,32 @@ export default function StaffManagement() {
                   {new Date(row.date).toLocaleDateString()}
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
-                  {row.source === 'user' && (
-                    <button
-                      onClick={() => handleStatusToggle(row.raw)}
-                      className={`text-xs font-medium ${row.status === 'active' ? 'text-red-500 hover:text-red-700' : 'text-green-600 hover:text-green-800'}`}
-                    >
-                      {row.status === 'active' ? 'Deactivate' : 'Reactivate'}
-                    </button>
-                  )}
-                  {row.source === 'invite' && (
-                    <button
-                      onClick={() => handleResend(row.raw)}
-                      className="text-xs font-medium text-amber-600 hover:text-amber-800"
-                    >
-                      Resend invite
-                    </button>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {row.source === 'user' && (
+                      <>
+                        <button
+                          onClick={() => handleStatusToggle(row.raw)}
+                          className={`text-xs font-medium ${row.status === 'active' ? 'text-red-500 hover:text-red-700' : 'text-green-600 hover:text-green-800'}`}
+                        >
+                          {row.status === 'active' ? 'Deactivate' : 'Reactivate'}
+                        </button>
+                        <button
+                          onClick={() => openReset(row)}
+                          className="text-xs font-medium text-primary-600 hover:text-primary-800"
+                        >
+                          Reset password
+                        </button>
+                      </>
+                    )}
+                    {row.source === 'invite' && (
+                      <button
+                        onClick={() => handleResend(row.raw)}
+                        className="text-xs font-medium text-amber-600 hover:text-amber-800"
+                      >
+                        Resend invite
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -300,6 +348,46 @@ export default function StaffManagement() {
               <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
               <button type="submit" className="btn-primary" disabled={saving}>
                 {saving ? 'Sending…' : 'Send invite'}
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Reset password modal */}
+      <Modal open={!!resetTarget} onClose={closeReset} title="Reset Password">
+        {resetSuccess ? (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-sm text-green-800">
+              Password has been reset for <span className="font-semibold">{resetTarget?.name}</span>.
+            </div>
+            <div className="flex justify-end">
+              <button className="btn-primary" onClick={closeReset}>Done</button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleReset} className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Set a new password for <span className="font-semibold">{resetTarget?.name}</span> ({resetTarget?.email}).
+            </p>
+            <div>
+              <label className="form-label">New password</label>
+              <input
+                type="password"
+                required
+                className="form-input"
+                placeholder="Min. 8 characters"
+                value={resetPwd}
+                onChange={(e) => setResetPwd(e.target.value)}
+              />
+            </div>
+            {resetError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{resetError}</p>
+            )}
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" className="btn-secondary" onClick={closeReset} disabled={resetting}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={resetting}>
+                {resetting ? 'Saving…' : 'Reset password'}
               </button>
             </div>
           </form>

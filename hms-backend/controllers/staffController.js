@@ -275,4 +275,26 @@ const deleteUser = async (req, res, next) => {
   }
 };
 
-module.exports = { getStaff, sendInvite, validateInvite, acceptInvite, updateStaffStatus, resendInvite, deleteUser };
+// POST /api/staff/:id/reset-password  (admin only)
+const resetPassword = async (req, res, next) => {
+  const { new_password } = req.body;
+  if (!new_password || new_password.length < 8) {
+    return res.status(400).json({ message: 'Password must be at least 8 characters' });
+  }
+
+  try {
+    const hashed = await bcrypt.hash(new_password, SALT_ROUNDS);
+    const { rows } = await pool.query(
+      `UPDATE users SET password = $1
+       WHERE user_id = $2
+       RETURNING user_id, email, role`,
+      [hashed, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ message: 'User not found' });
+    res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getStaff, sendInvite, validateInvite, acceptInvite, updateStaffStatus, resendInvite, deleteUser, resetPassword };
